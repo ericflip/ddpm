@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "ddpm"
+version = "0.1.0"
+description = ""
+authors = ["Eric Chen <eric.chen@backflip.ai>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = "^2.1.2"
+torchvision = "^0.16.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
