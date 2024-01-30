@@ -11,6 +11,7 @@ torch = "^2.1.2"
 torchvision = "^0.16.2"
 ipykernel = "^6.29.0"
 matplotlib = "^3.8.2"
+imageio = {extras = ["ffmpeg"], version = "^2.33.1"}
 
 
 [build-system]

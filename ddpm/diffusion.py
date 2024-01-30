@@ -33,18 +33,39 @@ class GaussianDiffusion:
 
         return mean, var
 
-    def q_sample(self, x_start: torch.Tensor, t: int):
+    def q_sample(self, x_0: torch.Tensor, t: int):
         """
         Sample from q(x_t | x_0)
 
         Params:
-            - x_start: noiseless sample from distribution (N, C, H, W)
+            - x_0: noiseless sample from distribution (N, C, H, W)
             - t: timestep, t=1...T
         """
         assert 1 <= t <= self.T
 
         mean, var = self.q_mean_var(t)
-        eps = torch.rand_like(x_start)
-        sample = mean * x_start + (var**0.5) * eps
+        eps = torch.rand_like(x_0)
+        sample = mean * x_0 + (var**0.5) * eps
 
         return sample
+
+    def q_posterior_mean_var(self, x_t: torch.Tensor, x_0: torch.Tensor, t: int):
+        """
+        Gets the mean and variance for posterior q(x_t-1 | x_t, x_0)
+        """
+        assert 1 < t <= self.T
+
+        t = t - 1
+
+        alpha_t = self.alphas[t]
+        alpha_bar_t = self.alpha_bar[t]
+        alpha_bar_t_1 = self.alpha_bar[t - 1]
+        beta_t = self.betas[t]
+
+        mean = (((alpha_t**0.5) * (1 - alpha_bar_t_1)) / (1 - alpha_bar_t)) * x_t + (
+            (alpha_bar_t_1**0.5) / (1 - alpha_bar_t) * beta_t
+        ) * x_0
+
+        variance = (1 - alpha_bar_t_1) / (1 - alpha_bar_t) * beta_t
+
+        return mean, variance
