@@ -3,6 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# https://github.com/openai/improved-diffusion/blob/main/improved_diffusion/nn.py
+def normalization(channels):
+    """
+    Make a standard normalization layer.
+
+    :param channels: number of input channels.
+    :return: an nn.Module for normalization.
+    """
+    return nn.GroupNorm(32, channels)  # wtf does this do?
+
+
 class Swish(nn.Module):
     """
     swish(x) = x * sigmoid(x)
@@ -54,3 +65,27 @@ class Downsample(nn.Module):
 
     def forward(self, x: torch.Tensor):
         return self.downsample(x)
+
+
+class ResNetBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        time_channels: int,
+        n_groups: int = 32,
+        dropout=0.5,
+    ):
+        super().__init__()
+        self.swish = Swish()
+
+    def forward(self, x: torch.Tensor, t: torch.Tensor):
+        """
+        Params:
+            - x: (N, C, W, H) batch of images
+            - t: (N, T) batch of time embeddings
+        """
+
+        h = x
+
+        # add in timestep embeddings
