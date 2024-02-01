@@ -3,17 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# https://github.com/openai/improved-diffusion/blob/main/improved_diffusion/nn.py
-def normalization(channels):
-    """
-    Make a standard normalization layer.
-
-    :param channels: number of input channels.
-    :return: an nn.Module for normalization.
-    """
-    return nn.GroupNorm(32, channels)  # wtf does this do?
-
-
 class Swish(nn.Module):
     """
     swish(x) = x * sigmoid(x)
@@ -67,6 +56,30 @@ class Downsample(nn.Module):
         return self.downsample(x)
 
 
+# https://github.com/openai/improved-diffusion/blob/main/improved_diffusion/nn.py
+def timestep_embedding(timesteps, dim, max_period=10000):
+    """
+    Create sinusoidal timestep embeddings.
+
+    :param timesteps: a 1-D Tensor of N indices, one per batch element.
+                      These may be fractional.
+    :param dim: the dimension of the output.
+    :param max_period: controls the minimum frequency of the embeddings.
+    :return: an [N x dim] Tensor of positional embeddings.
+    """
+    half = dim // 2
+    freqs = torch.exp(
+        -torch.log(max_period)
+        * torch.arange(start=0, end=half, dtype=torch.float32)
+        / half
+    ).to(device=timesteps.device)
+    args = timesteps[:, None].float() * freqs[None]
+    embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
+    if dim % 2:
+        embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+    return embedding
+
+
 class ResNetBlock(nn.Module):
     def __init__(
         self,
@@ -78,7 +91,7 @@ class ResNetBlock(nn.Module):
     ):
         super().__init__()
         self.in_layers = nn.Sequential(
-            normalization(in_channels),
+            nn.GroupNorm(n_groups, in_channels),
             Swish(),
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
         )
@@ -86,7 +99,7 @@ class ResNetBlock(nn.Module):
             Swish(), nn.Linear(time_channels, out_channels)
         )
         self.out_layers = nn.Sequential(
-            normalization(out_channels),
+            nn.GroupNorm(n_groups, out_channels),
             Swish(),
             nn.Dropout(dropout),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
@@ -111,3 +124,18 @@ class ResNetBlock(nn.Module):
         assert x.shape == h.shape
 
         return x + h
+
+
+class UNet(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        model_channels: int,
+        out_channels: int,
+        num_res_blocks: list[int],
+        attention_resolutions: list[int],
+        dropout=0,
+        channel_mult=(1, 2, 4, 8),
+        conv_resample=True,
+    ):
+        pass
