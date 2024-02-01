@@ -77,7 +77,20 @@ class ResNetBlock(nn.Module):
         dropout=0.5,
     ):
         super().__init__()
-        self.swish = Swish()
+        self.in_layers = nn.Sequential(
+            normalization(in_channels),
+            Swish(),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
+        )
+        self.time_layers = nn.Sequential(
+            Swish(), nn.Linear(time_channels, out_channels)
+        )
+        self.out_layers = nn.Sequential(
+            normalization(out_channels),
+            Swish(),
+            nn.Dropout(dropout),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
+        )
 
     def forward(self, x: torch.Tensor, t: torch.Tensor):
         """
@@ -86,6 +99,15 @@ class ResNetBlock(nn.Module):
             - t: (N, T) batch of time embeddings
         """
 
+        # save for residual connection
         h = x
+        h = self.in_layers(h)
 
         # add in timestep embeddings
+        h += self.time_layers(t)
+
+        h = self.out_layers(h)
+
+        assert x.shape == h.shape
+
+        return x + h
