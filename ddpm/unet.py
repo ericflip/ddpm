@@ -1,6 +1,9 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Union
 
 
 class Swish(nn.Module):
@@ -69,7 +72,7 @@ def timestep_embedding(timesteps, dim, max_period=10000):
     """
     half = dim // 2
     freqs = torch.exp(
-        -torch.log(max_period)
+        -math.log(max_period)
         * torch.arange(start=0, end=half, dtype=torch.float32)
         / half
     ).to(device=timesteps.device)
@@ -105,6 +108,14 @@ class ResNetBlock(nn.Module):
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
         )
 
+        # make sure when u add residual connections, the channel dimensions line up
+        if in_channels == out_channels:
+            self.skip_connection = nn.Identity()
+        else:
+            self.skip_connection = nn.Conv2d(
+                in_channels, out_channels, kernel_size=3, stride=1, padding=1
+            )
+
     def forward(self, x: torch.Tensor, t: torch.Tensor):
         """
         Params:
@@ -116,14 +127,29 @@ class ResNetBlock(nn.Module):
         h = x
         h = self.in_layers(h)
 
-        # add in timestep embeddings
-        h += self.time_layers(t)
-
+        # add in timestep embeddings;
+        time_embed = self.time_layers(t)[:, :, None, None]  # (N, C) -> (N, C, 1, 1)
+        h += time_embed
         h = self.out_layers(h)
+
+        # pass x through skip connection
+        x = self.skip_connection(x)
 
         assert x.shape == h.shape
 
         return x + h
+
+
+class AttentionBlock(nn.Module):
+    def __init__(self, channels: int, num_heads=1):
+        super().__init__()
+
+    def forward(self, x: torch.Tensor, t: torch.Tensor):
+        """
+        Params:
+            - x: (N, C, H, W)
+        """
+        pass
 
 
 class UNet(nn.Module):
@@ -132,10 +158,113 @@ class UNet(nn.Module):
         in_channels: int,
         model_channels: int,
         out_channels: int,
-        num_res_blocks: list[int],
-        attention_resolutions: list[int],
+        num_res_blocks: int,
+        attention_resolutions: list,
         dropout=0,
-        channel_mult=(1, 2, 4, 8),
+        channel_mult: Union[list[int], tuple[int]] = (1, 2, 4, 8),
         conv_resample=True,
     ):
-        pass
+        super().__init__()
+        self.in_channels = in_channels
+        self.model_channels = model_channels
+
+        # time embeddings
+        time_embed_channels = model_channels * 4
+        self.time_embed = nn.Sequential(
+            nn.Linear(model_channels, time_embed_channels),
+            Swish(),
+            nn.Linear(time_embed_channels, time_embed_channels),
+        )
+
+        # downsampling
+        self.in_layer = nn.Conv2d(
+            in_channels, model_channels, kernel_size=3, stride=1, padding=1
+        )
+        self.downsamples = nn.ModuleList([])
+
+        num_resolutions = len(channel_mult)
+        ch = model_channels
+
+        for i, ch_mult in enumerate(channel_mult):
+            layers = []
+            for j in range(num_res_blocks):
+                in_channels = ch
+                out_channels = model_channels * ch_mult
+
+                resnet_block = ResNetBlock(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    time_channels=time_embed_channels,
+                    dropout=dropout,
+                )
+
+                layers.append(resnet_block)
+
+                ch = out_channels
+                resolution = 2**i
+
+                if resolution in attention_resolutions:
+                    layers.append(AttentionBlock(out_channels))
+
+            # downsample if not last layer
+            if i != num_resolutions - 1:
+                layers.append(Downsample(out_channels, with_conv=conv_resample))
+
+            self.downsamples.append(nn.ModuleList(layers))
+
+        # middle
+        self.middle_blocks = nn.ModuleList(
+            [
+                ResNetBlock(
+                    ch,
+                    ch,
+                    time_embed_channels,
+                    dropout=dropout,
+                ),
+                AttentionBlock(ch),
+                ResNetBlock(
+                    ch,
+                    ch,
+                    time_embed_channels,
+                    dropout=dropout,
+                ),
+            ]
+        )
+
+        # upsampling
+        # TODO: understand what the fuck is going on herew
+        for i, ch_mult in enumerate(channel_mult[::-1]):
+            layers = []
+
+            for j in range(num_res_blocks + 1):
+                pass
+
+            if i != 0:
+                layers.append(Upsample())
+
+        # out
+        self.out = nn.Sequential(
+            # nn.GroupNorm(32, )
+            Swish(),
+            nn.Conv2d(model_channels, out_channels, kernel_size=3, stride=1, padding=1),
+        )
+
+    def forward(self, x: torch.Tensor, t: torch.Tensor):
+        """
+        Params:
+            - x: (N, C, H, W) batch of images
+            - t: (N, ) batch of timesteps
+        """
+
+        assert x.shape[0] == t.shape[0]
+        N = x.shape[0]
+
+        # timestep embeddings
+        t = self.time_embed(timestep_embedding(t, self.model_channels))
+        assert t.shape == torch.Size([N, self.model_channels * 4])
+
+        # downsampling
+
+        # middle block
+
+        # upsampling

@@ -8,6 +8,7 @@ def linear_beta_schedule(beta_start: float, beta_end: float, timesteps: int):
     return torch.linspace(beta_start, beta_end, timesteps)
 
 
+# TODO: make t a tensor
 class GaussianDiffusion:
     """
     Utilities for training and sampling diffusion models
@@ -69,3 +70,9 @@ class GaussianDiffusion:
         variance = (1 - alpha_bar_t_1) / (1 - alpha_bar_t) * beta_t
 
         return mean, variance
+    
+    def p_mean_variance(self, model, x: torch.Tensor):
+        pass
+    
+    def p_sample(self, model, x: torch.Tensor, ):
+        pass
