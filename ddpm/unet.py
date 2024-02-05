@@ -248,7 +248,7 @@ class UNet(nn.Module):
             ),
         )
 
-        print(input_block_chs)
+        # print(input_block_chs)
 
         self.upsamples = nn.ModuleList([])
 
@@ -278,7 +278,7 @@ class UNet(nn.Module):
 
                 self.upsamples.append(TimeSequential(*layers))
 
-        print(len(self.upsamples))
+        # print(len(self.upsamples))
 
         # out
         self.out_layer = nn.Sequential(
@@ -312,9 +312,9 @@ class UNet(nn.Module):
         # middle block
         x = self.middle_blocks(x, temb)
 
-        print([z.shape for z in hs])
+        # print([z.shape for z in hs])
 
-        print(x.shape)
+        # print(x.shape)
 
         # upsampling
         for layer in self.upsamples:
@@ -328,6 +328,6 @@ class UNet(nn.Module):
         # out layer
         x = self.out_layer(x)
 
-        print(x.shape)
+        # print(x.shape)
 
         return x

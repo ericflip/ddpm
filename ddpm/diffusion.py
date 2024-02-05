@@ -18,35 +18,38 @@ class GaussianDiffusion:
         self.betas = linear_beta_schedule(beta_start, beta_end, timesteps)
         self.alphas = 1 - self.betas
         self.alpha_bar = torch.cumprod(self.alphas, dim=0)
+        self.timesteps = timesteps
 
     @property
     def T(self):
-        return self.betas.shape[0]
+        return self.timesteps
 
     def q_mean_var(self, t: int):
         """
         Get the mean and variance for q(x_t | x_0)
-        """
-        assert 1 <= t <= self.T
 
-        mean = self.alpha_bar[t]
+        - mu = sqrt(alpha_bar_t)
+        - var = 1 - alpha_bat_t
+        """
+        mean = self.alpha_bar[t] ** 0.5
         var = 1 - self.alpha_bar[t]
 
         return mean, var
 
-    def q_sample(self, x_0: torch.Tensor, t: int):
+    def q_sample(self, x_0: torch.Tensor, t: torch.Tensor, noise=None):
         """
         Sample from q(x_t | x_0)
 
         Params:
             - x_0: noiseless sample from distribution (N, C, H, W)
-            - t: timestep, t=1...T
+            - t: timestep, t=1...T (N, )
         """
-        assert 1 <= t <= self.T
+
+        if noise is None:
+            noise = torch.randn_like(x_0)
 
         mean, var = self.q_mean_var(t)
-        eps = torch.rand_like(x_0)
-        sample = mean * x_0 + (var**0.5) * eps
+        sample = mean * x_0 + (var**0.5) * noise
 
         return sample
 
@@ -70,9 +73,22 @@ class GaussianDiffusion:
         variance = (1 - alpha_bar_t_1) / (1 - alpha_bar_t) * beta_t
 
         return mean, variance
-    
-    def p_mean_variance(self, model, x: torch.Tensor):
+
+    def p_mean_variance(self, model: torch.nn.Module, x: torch.Tensor, t: torch.Tensor):
+        t = t - 1
+
+        alpha_bar_t_1 = self.alpha_bar[t - 1]
+        alpha_bar_t = self.alpha_bar[t]
+        beta_t = self.betas[t]
+
+        # TODO: fix this
+        mean = 0
+        var = (1 - alpha_bar_t_1) / (1 - alpha_bar_t) * beta_t
+
+        return mean, var
+
+    def p_sample(self, model: torch.nn.Module, x: torch.Tensor, t: torch.Tensor):
         pass
-    
-    def p_sample(self, model, x: torch.Tensor, ):
+
+    def sample(self, model: torch.nn.Module):
         pass
