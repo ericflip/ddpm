@@ -53,13 +53,12 @@ class GaussianDiffusion:
 
         return sample
 
-    def q_posterior_mean_var(self, x_t: torch.Tensor, x_0: torch.Tensor, t: int):
+    def q_posterior_mean_var(
+        self, x_t: torch.Tensor, x_0: torch.Tensor, t: torch.Tensor
+    ):
         """
         Gets the mean and variance for posterior q(x_t-1 | x_t, x_0)
         """
-        assert 1 < t <= self.T
-
-        t = t - 1
 
         alpha_t = self.alphas[t]
         alpha_bar_t = self.alpha_bar[t]
@@ -74,20 +73,29 @@ class GaussianDiffusion:
 
         return mean, variance
 
-    def p_mean_variance(self, model: torch.nn.Module, x: torch.Tensor, t: torch.Tensor):
-        t = t - 1
+    def p_mean_variance(
+        self, model: torch.nn.Module, x_t: torch.Tensor, t: torch.Tensor
+    ):
 
         alpha_bar_t_1 = self.alpha_bar[t - 1]
         alpha_bar_t = self.alpha_bar[t]
         beta_t = self.betas[t]
 
-        # TODO: fix this
-        mean = 0
+        # predict noise
+        eps = model(x_t, t)
+
+        # calculate parameterized mean and variance
+        alpha_t = self.alphas[t]
+        alpha_bar_t = self.alpha_bar[t]
+
+        mean = (1 / alpha_t**0.5) * (
+            x_t - (1 - alpha_t) / ((1 - alpha_bar_t) ** 0.5) * eps
+        )
         var = (1 - alpha_bar_t_1) / (1 - alpha_bar_t) * beta_t
 
         return mean, var
 
-    def p_sample(self, model: torch.nn.Module, x: torch.Tensor, t: torch.Tensor):
+    def p_sample(self, model: torch.nn.Module, x_t: torch.Tensor, t: torch.Tensor):
         pass
 
     def sample(self, model: torch.nn.Module):
