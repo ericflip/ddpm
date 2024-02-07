@@ -95,8 +95,23 @@ class GaussianDiffusion:
 
         return mean, var
 
+    # TODO: test all of these methods
     def p_sample(self, model: torch.nn.Module, x_t: torch.Tensor, t: torch.Tensor):
-        pass
+        z = torch.randn_like(x_t)
+        mean, var = self.p_mean_variance(model, x_t, t)
+        sample = mean + (var**0.5) * z
 
-    def sample(self, model: torch.nn.Module):
-        pass
+        return sample
+
+    def sample(self, model: torch.nn.Module, noise=None):
+        if noise is None:
+            noise = torch.randn((1, 3, 32, 32))
+
+        N = noise.shape[0]
+
+        x_t = noise
+        for t in range(self.T - 1, -1, -1):
+            t = torch.tensor([t] * N)
+            x_t = self.p_sample(model, x_t, t)
+
+        return x_t
