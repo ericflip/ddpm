@@ -2,7 +2,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Union
-from nn import Swish, ResNetBlock, Upsample, Downsample, AttentionBlock, TimeSequential
+from nn import (
+    Swish,
+    ResNetBlock,
+    Upsample,
+    Downsample,
+    AttentionBlock,
+    TimeSequential,
+    timestep_embedding,
+)
 
 
 class UNet(nn.Module):
