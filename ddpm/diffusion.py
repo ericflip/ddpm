@@ -8,6 +8,25 @@ def linear_beta_schedule(beta_start: float, beta_end: float, timesteps: int):
     return torch.linspace(beta_start, beta_end, timesteps)
 
 
+def extract(a: torch.Tensor, shape: torch.Size):
+    """
+    Make `a` broadcastable to `x_t`. The first dimension of `a` and `x_t` must match.
+
+    ie.
+    a.shape = (3, )
+    shape = (3, 32, 16, 16)
+
+    a.shape -> (3, 1, 1, 1)
+    """
+
+    assert a.shape[0] == shape[0]
+
+    while a.dim() < len(shape):
+        a = a.unsqueeze(-1)
+
+    return a
+
+
 class GaussianDiffusion:
     """
     Utilities for training and sampling diffusion models
@@ -39,10 +58,8 @@ class GaussianDiffusion:
         - mu = sqrt(alpha_bar_t) * x_t
         - var = 1 - alpha_bat_t
         """
-        mean = (self.alpha_bar[t] ** 0.5).unsqueeze(-1).unsqueeze(-1).unsqueeze(
-            -1
-        ) * x_0
-        var = (1 - self.alpha_bar[t]).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+        mean = extract((self.alpha_bar[t] ** 0.5), x_0.shape) * x_0
+        var = extract(1 - self.alpha_bar[t], x_0.shape)
 
         return mean, var
 
@@ -59,7 +76,7 @@ class GaussianDiffusion:
             noise = torch.randn_like(x_0).to(x_0.device)
 
         mean, var = self.q_mean_var(x_0, t)
-        sample = mean * x_0 + (var**0.5) * noise
+        sample = mean + (var**0.5) * noise
 
         return sample
 
