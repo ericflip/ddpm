@@ -19,7 +19,8 @@ class DDPMPipeline:
         noise = torch.randn(
             (num_images, self.unet.in_channels, image_size, image_size)
         ).to(self.device)
-        samples = self.diffusion.sample(self.unet, noise, clip_denoised=True)
+        # samples = self.diffusion.sample(self.unet, noise, clip_denoised=True)
+        samples = self.diffusion.sample(self.unet, noise, clip_denoised=False)
         images = batch_to_images(samples)
 
         return images
