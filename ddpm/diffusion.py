@@ -10,7 +10,7 @@ def linear_beta_schedule(beta_start: float, beta_end: float, timesteps: int):
 
 def extract(a: torch.Tensor, shape: torch.Size):
     """
-    Make `a` broadcastable to `x_t`. The first dimension of `a` and `x_t` must match.
+    Make `a` broadcastable to tensor of size `shape`. The first dimension of `a` and `shape` must match.
 
     ie.
     a.shape = (3, )
@@ -47,9 +47,6 @@ class GaussianDiffusion:
     @property
     def T(self):
         return self.timesteps
-
-    def normalize(self, x: torch.Tensor):
-        pass
 
     def q_mean_var(self, x_0: torch.Tensor, t: int):
         """
@@ -116,10 +113,12 @@ class GaussianDiffusion:
         alpha_t = self.alphas[t]
         alpha_bar_t = self.alpha_bar[t]
 
-        mean = (1 / alpha_t**0.5) * (
-            x_t - (1 - alpha_t) / ((1 - alpha_bar_t) ** 0.5) * eps
+        mean = extract(1 / alpha_t**0.5, x_t.shape) * (
+            x_t - extract((1 - alpha_t) / ((1 - alpha_bar_t) ** 0.5), x_t.shape) * eps
         )
+
         var = (1 - alpha_bar_t_1) / (1 - alpha_bar_t) * beta_t
+        var = extract(var, x_t.shape)
 
         return mean, var
 
@@ -141,16 +140,22 @@ class GaussianDiffusion:
 
         return sample
 
-    def sample(self, model: torch.nn.Module, noise=None, clip_denoised=True):
+    def sample(
+        self, model: torch.nn.Module, noise=None, clip_denoised=True, device="cuda"
+    ):
         if noise is None:
-            noise = torch.randn((1, 3, 32, 32))
+            noise = torch.randn((1, 3, 32, 32)).to(device)
 
         N = noise.shape[0]
-
         x_t = noise
-        for t in range(self.T - 1, 0, -1):
-            t = torch.tensor([t] * N)
-            x_t = self.p_sample(model, x_t, t, clip_denoised=clip_denoised)
+
+        model.to(device)
+        model.eval()
+
+        with torch.no_grad():
+            for t in range(self.T - 1, 0, -1):
+                t = torch.tensor([t] * N).to(device)
+                x_t = self.p_sample(model, x_t, t, clip_denoised=clip_denoised)
 
         return x_t
 

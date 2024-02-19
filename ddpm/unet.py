@@ -1,14 +1,15 @@
+from typing import Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Union
 from nn import (
-    Swish,
-    ResNetBlock,
-    Upsample,
-    Downsample,
     AttentionBlock,
+    Downsample,
+    ResNetBlock,
+    Swish,
     TimeSequential,
+    Upsample,
     timestep_embedding,
 )
 
@@ -28,6 +29,12 @@ class UNet(nn.Module):
         super().__init__()
         self.in_channels = in_channels
         self.model_channels = model_channels
+        self.out_channels = out_channels
+        self.num_res_blocks = num_res_blocks
+        self.attention_resolutions = attention_resolutions
+        self.dropout = dropout
+        self.channel_mult = channel_mult
+        self.conv_resample = conv_resample
 
         # time embeddings
         time_embed_channels = model_channels * 4
@@ -96,8 +103,6 @@ class UNet(nn.Module):
             ),
         )
 
-        # print(input_block_chs)
-
         self.upsamples = nn.ModuleList([])
 
         # upsampling
@@ -126,14 +131,25 @@ class UNet(nn.Module):
 
                 self.upsamples.append(TimeSequential(*layers))
 
-        # print(len(self.upsamples))
-
         # out
         self.out_layer = nn.Sequential(
             nn.GroupNorm(32, ch),
             Swish(),
             nn.Conv2d(model_channels, out_channels, kernel_size=3, stride=1, padding=1),
         )
+
+    @property
+    def config(self):
+        return {
+            "in_channels": self.in_channels,
+            "model_channels": self.model_channels,
+            "out_channels": self.out_channels,
+            "num_res_blocks": self.num_res_blocks,
+            "attention_resolutions": self.attention_resolutions,
+            "dropout": self.dropout,
+            "channel_mult": self.channel_mult,
+            "conv_resample": self.conv_resample,
+        }
 
     def forward(self, x: torch.Tensor, t: torch.Tensor):
         """
@@ -160,22 +176,12 @@ class UNet(nn.Module):
         # middle block
         x = self.middle_blocks(x, temb)
 
-        # print([z.shape for z in hs])
-
-        # print(x.shape)
-
         # upsampling
         for layer in self.upsamples:
-            # skip connection
-            # print(x.shape, hs[-1].shape)
             x = torch.cat((x, hs.pop()), dim=1)
             x = layer(x, temb)
 
-            # print(x.shape)
-
         # out layer
         x = self.out_layer(x)
-
-        # print(x.shape)
 
         return x
