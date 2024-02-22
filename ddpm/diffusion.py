@@ -1,4 +1,7 @@
+from typing import NamedTuple
+
 import torch
+from tqdm import tqdm
 
 
 def linear_beta_schedule(beta_start: float, beta_end: float, timesteps: int):
@@ -127,16 +130,12 @@ class GaussianDiffusion:
         model: torch.nn.Module,
         x_t: torch.Tensor,
         t: torch.Tensor,
-        clip_denoised=True,
     ):
         """ """
         z = torch.randn_like(x_t)
         mean, var = self.p_mean_variance(model, x_t, t)
 
         sample = mean + (var**0.5) * z
-
-        if clip_denoised:
-            sample = sample.clamp(-1, 1)
 
         return sample
 
@@ -153,9 +152,12 @@ class GaussianDiffusion:
         model.eval()
 
         with torch.no_grad():
-            for t in range(self.T - 1, 0, -1):
+            for t in tqdm(range(self.T - 1, 0, -1)):
                 t = torch.tensor([t] * N).to(device)
-                x_t = self.p_sample(model, x_t, t, clip_denoised=clip_denoised)
+                x_t = self.p_sample(model, x_t, t)
+
+        if clip_denoised:
+            x_t = x_t.clamp(-1, 1)
 
         return x_t
 

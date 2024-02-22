@@ -20,7 +20,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--checkpointing_epochs", type=float, default=100)
     parser.add_argument("--outdir", type=str, default="./train_fasion_mnist")
 
@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument("--model_channels", type=int, default=64)
     parser.add_argument("--num_res_blocks", type=int, default=2)
     parser.add_argument("--attention_resolutions", type=int, nargs="+", default=[2])
-    parser.add_argument("--channel_mult", type=int, nargs="+", default=[1, 2, 4])
+    parser.add_argument("--channel_mult", type=int, nargs="+", default=[1, 2, 4, 8])
 
     args = parser.parse_args()
 
@@ -171,5 +171,6 @@ if __name__ == "__main__":
 
     samples = generate_samples(unet, diffusion)
     samples_path = os.path.join(outdir, "samples.png")
+    samples.save(samples_path)
 
     print("Done!")

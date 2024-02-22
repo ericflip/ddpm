@@ -1,8 +1,9 @@
+import json
+import os
 from typing import Union
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from nn import (
     AttentionBlock,
     Downsample,
@@ -15,6 +16,22 @@ from nn import (
 
 
 class UNet(nn.Module):
+    @staticmethod
+    def from_checkpoint(checkpoint_path: str):
+        config_path = os.path.join(checkpoint_path, "config.json")
+        weights_path = os.path.join(checkpoint_path, "model.pt")
+
+        # initialize unet with config
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        unet = UNet(**config)
+
+        # load weights
+        unet.load_state_dict(torch.load(weights_path))
+
+        return unet
+
     def __init__(
         self,
         in_channels: int,
