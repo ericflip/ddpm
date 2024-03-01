@@ -8,7 +8,7 @@ def linear_beta_schedule(beta_start: float, beta_end: float, timesteps: int):
     return torch.linspace(beta_start, beta_end, timesteps)
 
 
-class NoiseScheduler:
+class NoiseSchedule:
     def __init__(
         self, beta_start: float, beta_end: float, timesteps: int, schedule_type="linear"
     ):
