@@ -118,6 +118,17 @@ class GaussianDiffusion:
 
         return mean, variance
 
+    def get_pred_x0(self, model: torch.nn.Module, x_t: torch.Tensor, t: torch.Tensor):
+        """
+        Get the predicted x_0 from x_t
+        """
+        pred_eps = model(x_t, t)
+        pred_x0 = extract(1 / self.alpha_bar[t] ** 0.5, x_t.shape) * (
+            x_t - extract((1 - self.alpha_bar[t]) ** 0.5, x_t.shape) * pred_eps
+        )
+
+        return pred_x0
+
     def p_mean_variance(
         self, model: torch.nn.Module, x_t: torch.Tensor, t: torch.Tensor
     ):
@@ -148,7 +159,7 @@ class GaussianDiffusion:
         model: torch.nn.Module,
         x_t: torch.Tensor,
         t: torch.Tensor,
-    ):
+    ) -> GaussianDiffusionPSampleOutput:
         """
         Sample from p(x_t-1 | x_t)
         """
@@ -162,7 +173,10 @@ class GaussianDiffusion:
         mean, var = self.p_mean_variance(model, x_t, t)
         sample = mean + (var**0.5) * z
 
-        return sample
+        # get predicted x_0
+        pred_x0 = self.get_pred_x0(model, x_t, t)
+
+        return GaussianDiffusionPSampleOutput(prev_sample=sample, pred_x0=pred_x0)
 
     def sample(
         self,
@@ -187,7 +201,7 @@ class GaussianDiffusion:
             # iteratively sample x_t-1 from p(x_t-1 | x_t) until we reach x_0
             for t in tqdm(range(self.T - 1, -1, -1)):
                 t = torch.tensor([t] * N).to(device)
-                x_t = self.p_sample(model, x_t, t)
+                x_t = self.p_sample(model, x_t, t).prev_sample
 
                 if output_samples:
                     samples.append(x_t.clone().detach().cpu())

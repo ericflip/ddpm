@@ -31,3 +31,30 @@ def make_image_grid(
     for i, img in enumerate(images):
         grid.paste(img, box=(i % cols * w, i // cols * h))
     return grid
+
+
+def make_video(arrays):
+    import imageio
+    import numpy as np
+    from PIL import Image
+
+    arrays = [array.permute((1, 2, 0)).squeeze(-1) * 255 for array in arrays]
+    arrays = [array.cpu().numpy().astype(np.uint8) for array in arrays]
+
+    arrays = [Image.fromarray(array).resize((256, 256), 0) for array in arrays]
+
+    # Convert tensors to numpy arrays and ensure they are in uint8 format
+    # images = [array.numpy().astype(np.uint8) for array in arrays]
+    images = [np.array(array) for array in arrays]
+
+    # Create a video writer object using imageio
+    writer = imageio.get_writer(
+        "output_video.mp4", fps=120
+    )  # You can change fps to your desired frame rate
+
+    # Write each frame to the video
+    for img in images:
+        writer.append_data(img)
+
+    # Close the writer to finalize the video
+    writer.close()
