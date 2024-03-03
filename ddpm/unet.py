@@ -5,7 +5,7 @@ from typing import Union
 import torch
 import torch.nn as nn
 
-from .nn import (
+from ddpm.nn import (
     AttentionBlock,
     Downsample,
     ResNetBlock,

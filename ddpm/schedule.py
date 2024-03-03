@@ -21,7 +21,7 @@ class NoiseSchedule:
             self.beta = linear_beta_schedule(beta_start, beta_end, timesteps)
 
         self.alpha = 1 - self.beta
-        self.alpha_bar = torch.cumprod(self.alphas, dim=0)
+        self.alpha_bar = torch.cumprod(self.alpha, dim=0)
         self.device = "cpu"
 
     @property

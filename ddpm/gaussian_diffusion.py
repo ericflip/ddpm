@@ -47,15 +47,16 @@ class GaussianDiffusion:
         noise_schedule: NoiseSchedule,
         device: torch.device = "cpu",
     ):
-        self.model = model
-        self.noise_schedule = noise_schedule
+        self.model = model.to(device)
+        self.noise_schedule = noise_schedule.to(device)
         self.device = device
 
     @property
     def T(self):
-        return self.timesteps
+        return self.noise_schedule.timesteps
 
     def to(self, device: torch.device):
+        self.device = device
         self.model = self.model.to(device)
         self.noise_schedule = self.noise_schedule.to(device)
 
@@ -97,10 +98,10 @@ class GaussianDiffusion:
     #     Gets the mean and variance for posterior q(x_t-1 | x_t, x_0)
     #     """
 
-    #     alpha_t = self.noise_schedule.alphas[t]
+    #     alpha_t = self.noise_schedule.alpha[t]
     #     alpha_bar_t = self.noise_schedule.alpha_bar[t]
     #     alpha_bar_t_1 = self.noise_schedule.alpha_bar[t - 1]
-    #     beta_t = self.noise_schedule.betas[t]
+    #     beta_t = self.noise_schedule.beta[t]
 
     #     mean = (((alpha_t**0.5) * (1 - alpha_bar_t_1)) / (1 - alpha_bar_t)) * x_t + (
     #         (alpha_bar_t_1**0.5) / (1 - alpha_bar_t) * beta_t
@@ -115,8 +116,10 @@ class GaussianDiffusion:
         Get the predicted x_0 from x_t
         """
         pred_eps = self.model(x_t, t)
-        pred_x0 = extract(1 / self.alpha_bar[t] ** 0.5, x_t.shape) * (
-            x_t - extract((1 - self.alpha_bar[t]) ** 0.5, x_t.shape) * pred_eps
+        pred_x0 = extract(1 / self.noise_schedule.alpha_bar[t] ** 0.5, x_t.shape) * (
+            x_t
+            - extract((1 - self.noise_schedule.alpha_bar[t]) ** 0.5, x_t.shape)
+            * pred_eps
         )
 
         return pred_x0
@@ -128,8 +131,8 @@ class GaussianDiffusion:
 
         alpha_bar_t_1 = self.noise_schedule.alpha_bar[t - 1]
         alpha_bar_t = self.noise_schedule.alpha_bar[t]
-        alpha_t = self.alphas[t]
-        beta_t = self.noise_schedule.betas[t]
+        alpha_t = self.noise_schedule.alpha[t]
+        beta_t = self.noise_schedule.beta[t]
 
         # predict noise
         eps = self.model(x_t, t)
