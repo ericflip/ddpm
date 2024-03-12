@@ -25,7 +25,7 @@ def main(args):
     pipe = DDPMPipeline.from_checkpoint(args.checkpoint_path).to("cuda")
 
     # generate sample
-    sample = pipe(num_images=1, image_size=32)[0]
+    sample = pipe(num_images=1, image_size=32).images[0]
 
     # save sample
     sample_path = os.path.join(args.output_dir, f"{uuid.uuid4()}.png")

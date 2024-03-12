@@ -163,3 +163,5 @@ data/
 test/
 fashionmnist1/
 fashionmnist_test/
+ddpm_fashionmnist/
+checkpoints/

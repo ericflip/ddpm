@@ -43,11 +43,9 @@ class GaussianDiffusion:
 
     def __init__(
         self,
-        model: UNet,
         noise_schedule: NoiseSchedule,
         device: torch.device = "cpu",
     ):
-        self.model = model.to(device)
         self.noise_schedule = noise_schedule.to(device)
         self.device = device
 
@@ -57,7 +55,6 @@ class GaussianDiffusion:
 
     def to(self, device: torch.device):
         self.device = device
-        self.model = self.model.to(device)
         self.noise_schedule = self.noise_schedule.to(device)
 
         return self
@@ -111,11 +108,11 @@ class GaussianDiffusion:
 
     #     return mean, variance
 
-    def get_pred_x0(self, x_t: torch.Tensor, t: torch.Tensor):
+    def get_pred_x0(self, model: UNet, x_t: torch.Tensor, t: torch.Tensor):
         """
         Get the predicted x_0 from x_t
         """
-        pred_eps = self.model(x_t, t)
+        pred_eps = model(x_t, t)
         pred_x0 = extract(1 / self.noise_schedule.alpha_bar[t] ** 0.5, x_t.shape) * (
             x_t
             - extract((1 - self.noise_schedule.alpha_bar[t]) ** 0.5, x_t.shape)
@@ -124,7 +121,7 @@ class GaussianDiffusion:
 
         return pred_x0
 
-    def p_mean_variance(self, x_t: torch.Tensor, t: torch.Tensor):
+    def p_mean_variance(self, model: UNet, x_t: torch.Tensor, t: torch.Tensor):
         """
         Get predicted p(x_t-1 | x_t)
         """
@@ -135,7 +132,7 @@ class GaussianDiffusion:
         beta_t = self.noise_schedule.beta[t]
 
         # predict noise
-        eps = self.model(x_t, t)
+        eps = model(x_t, t)
 
         # calculate parameterized mean and variance
         mean = extract(1 / alpha_t**0.5, x_t.shape) * (
@@ -149,6 +146,7 @@ class GaussianDiffusion:
 
     def p_sample(
         self,
+        model: UNet,
         x_t: torch.Tensor,
         t: torch.Tensor,
     ) -> GaussianDiffusionPSampleOutput:
@@ -162,16 +160,17 @@ class GaussianDiffusion:
         z[mask] = 0
 
         # sample
-        mean, var = self.p_mean_variance(x_t, t)
+        mean, var = self.p_mean_variance(model, x_t, t)
         sample = mean + (var**0.5) * z
 
         # get predicted x_0
-        pred_x0 = self.get_pred_x0(x_t, t)
+        pred_x0 = self.get_pred_x0(model, x_t, t)
 
         return GaussianDiffusionPSampleOutput(prev_sample=sample, pred_x0=pred_x0)
 
     def sample(
         self,
+        model: UNet,
         noise=None,
         clip_denoised=True,
         output_samples=False,
@@ -185,12 +184,13 @@ class GaussianDiffusion:
 
         samples = []
 
-        self.model.eval()
+        model.eval()
+        model.to(self.device)
         with torch.no_grad():
             # iteratively sample x_t-1 from p(x_t-1 | x_t) until we reach x_0
             for t in tqdm(range(self.T - 1, -1, -1)):
                 t = torch.tensor([t] * N).to(self.device)
-                x_t = self.p_sample(x_t, t).prev_sample
+                x_t = self.p_sample(model, x_t, t).prev_sample
 
                 if output_samples:
                     samples.append(x_t.clone().detach().cpu())

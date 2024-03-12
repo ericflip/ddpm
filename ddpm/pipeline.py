@@ -1,9 +1,12 @@
+import json
+import os
 from typing import NamedTuple, Union
 
 import torch
 from PIL import Image
 
 from ddpm.gaussian_diffusion import GaussianDiffusion
+from ddpm.schedule import NoiseSchedule
 from ddpm.unet import UNet
 from ddpm.utils import batch_to_images
 
@@ -16,21 +19,22 @@ class DDPMPipelineOutput(NamedTuple):
 class DDPMPipeline:
     @staticmethod
     def from_checkpoint(checkpoint_path: str):
-        pass
-        # unet = UNet.from_checkpoint(checkpoint_path)
+        config_path = os.path.join(checkpoint_path, "config.json")
+        schedule_path = os.path.join(checkpoint_path, "schedule.json")
 
-        # # TODO: load diffusion from config
-        # beta_start = 1e-4
-        # beta_end = 0.02
-        # diffusion = GaussianDiffusion(
-        #     beta_start=beta_start,
-        #     beta_end=beta_end,
-        #     timesteps=1000,
-        # )
+        config = json.load(open(config_path, "r"))
+        schedule = json.load(open(schedule_path, "r"))
 
-        # return DDPMPipeline(unet, diffusion)
+        noise_schedule = NoiseSchedule(**schedule)
+        unet = UNet(**config)
+        unet.load_state_dict(torch.load(os.path.join(checkpoint_path, "model.pt")))
 
-    def __init__(self, diffusion: GaussianDiffusion):
+        diffusion = GaussianDiffusion(noise_schedule)
+
+        return DDPMPipeline(unet, diffusion)
+
+    def __init__(self, model: UNet, diffusion: GaussianDiffusion):
+        self.model = model
         self.diffusion = diffusion
         self.device = diffusion.device
 
@@ -46,12 +50,15 @@ class DDPMPipeline:
         """
         # initialize noise
         noise = torch.randn(
-            (num_images, self.diffusion.model.in_channels, image_size, image_size)
+            (num_images, self.model.in_channels, image_size, image_size)
         ).to(self.device)
 
         # sample x_0 from diffusion
         samples_output = self.diffusion.sample(
-            noise, clip_denoised=clip_denoised, output_samples=output_samples
+            self.model,
+            noise,
+            clip_denoised=clip_denoised,
+            output_samples=output_samples,
         )
 
         x_0 = samples_output.x_0
@@ -69,7 +76,6 @@ class DDPMPipeline:
 
     def to(self, device: str):
         self.device = device
-        self.unet = self.unet.to(device)
         self.diffusion = self.diffusion.to(device)
 
         return self

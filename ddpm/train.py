@@ -78,11 +78,12 @@ def main(args):
     )
 
     # prepare diffusion
-    diffusion = GaussianDiffusion(noise_schedule=noise_schedule, model=unet)
+    diffusion = GaussianDiffusion(noise_schedule=noise_schedule)
 
     # initialize trainer and train
     trainer = Trainer(
         diffusion=diffusion,
+        model=unet,
         train_loader=loader,
         batch_size=args.batch_size,
         lr=args.lr,
